@@ -1,6 +1,4 @@
 import unittest
-import os
-
 import requests
 from pandas import DataFrame
 
@@ -14,7 +12,7 @@ class TestService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         command.start_server_background(tst.app, 4000)
-        cls.serv = service.SwaggerService('http://localhost:4000').build()
+        cls.serv = service.ClientService('http://localhost:4000').build()
 
     @classmethod
     def tearDownClass(cls):

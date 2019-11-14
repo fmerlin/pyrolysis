@@ -1,37 +1,26 @@
 from enum import Enum, auto
 import flask
-from marshmallow import Schema, fields, post_load
 from pandas import DataFrame
+from dataclasses import dataclass, field
 
 from pyrolysis.server.parameter import Header
-from pyrolysis.server.route import Service
-
+from pyrolysis.server.route import ServerService
 
 flsk = flask.Flask('test')
-app = Service(flsk)
-#test_sec = app.oauth2(security='test_sec',
+app = ServerService(flsk)
+
+
+# test_sec = app.oauth2(security='test_sec',
 #                      authorizationUrl='')
 
 
+@dataclass
 class TestServerObject:
-    def __init__(self, name, id):
-        self.name = name
-        self.id = id
-
-    def __eq__(self, o):
-        return self.name == o.name and self.id == o.id
+    name: str = field()
+    id: int = field()
 
 
-class TestServerObjectSchema(Schema):
-    name = fields.Str()
-    id = fields.Int()
-
-    @post_load
-    def make(self, data, many, partial):
-        return TestServerObject(**data)
-
-
-app.register(TestServerObject, TestServerObjectSchema)
+app.register(TestServerObject)
 
 
 class MyEnum(Enum):
@@ -41,7 +30,7 @@ class MyEnum(Enum):
 
 
 @app.get('/test/<p>')
-def test_path(p: int=1) -> int:
+def test_path(p: int = 1) -> int:
     """
     Example 1 for a unit test
 
@@ -67,7 +56,7 @@ def test_query(p: int = 1) -> int:
         Header(description='example of description')
     ]
 )
-def test_header(p: int=1) -> int:
+def test_header(p: int = 1) -> int:
     """
     Example 3 for a unit test
     :returns test

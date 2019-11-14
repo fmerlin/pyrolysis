@@ -1,25 +1,17 @@
 import unittest
 from datetime import date, datetime
-from marshmallow import Schema, fields, post_load
 from pyrolysis.common.mime import Converter
+from dataclasses import dataclass, field
+import marshmallow_dataclass
 
 
+@dataclass
 class TestObject:
-    def __init__(self, name, id):
-        self.name = name
-        self.id = id
-
-    def __eq__(self, o):
-        return self.name == o.name and self.id == o.id
+    name: str = field()
+    id: int = field()
 
 
-class TestObjectSchema(Schema):
-    name = fields.Str()
-    id = fields.Int()
-
-    @post_load
-    def make(self, data):
-        return TestObject(**data)
+TestObjectSchema = marshmallow_dataclass.class_schema(TestObject)
 
 
 class TestService(unittest.TestCase):

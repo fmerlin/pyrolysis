@@ -3,6 +3,7 @@ from collections import namedtuple, Mapping, Iterable
 from json import JSONEncoder
 
 import marshmallow
+import marshmallow_dataclass
 import requests
 import base64
 from datetime import date, datetime
@@ -49,8 +50,8 @@ class JSONEncoder2(JSONEncoder):
 class Converter:
     schemas = {}
 
-    def register(self, cls, mapper):
-        self.schemas[cls.__name__] = mapper()
+    def register(self, cls):
+        self.schemas[cls.__name__] = marshmallow_dataclass.class_schema(cls)()
 
     def schema_convert(self, data, checker=None):
         if isinstance(data, Iterable) and not isinstance(data, Mapping) and not isinstance(data, str):

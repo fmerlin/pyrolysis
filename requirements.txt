@@ -7,3 +7,4 @@ requests-auth
 marshmallow_jsonschema
 pandas
 msgpack
+marshmallow_dataclass

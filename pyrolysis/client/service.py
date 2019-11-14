@@ -16,7 +16,7 @@ from pyrolysis.client.method import SwaggerMethod
 logger = logging.getLogger(__name__)
 
 
-class SwaggerService(mime.Converter):
+class ClientService(mime.Converter):
     def __init__(self, base='http://localhost', server_mode=False, track=False, agent=None,
                  username=None, password=None, api_key=None, proxies=(), port=8000, success_display_time=60,
                  failure_display_time=60, timeout=60, cache=None, max_retries=5, with_checks=True, statsd=None,

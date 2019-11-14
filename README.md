@@ -1,27 +1,44 @@
 ## Pyrolysis is a simple way to create and use REST Apis using python 3 type system
 
 
-server example:
+server code example:
 
     flsk = flask.Flask('test')
-    app = Service(flsk, base='/my_service')
+    app = ServerService(flsk, base='/my_service')
 
     @app.get('/test/<p>')
-    def test_path(p: int=1) -> int:
+    def test_add_one(p: int=1) -> int:
         """
         Example 1 for a unit test
     
         :param p: example of description
         :return: return data
         """
-        return p
+        return p + 1
 
     start_server(app, 5000)
 
-client example:
+client code example:
 
-    serv = pyrolysis.server.route.SwaggerService('http://localhost:5000/my_service').load()
-    res = serv.test_path(2)
+    serv = ClientService('http://localhost:5000/my_service')
+    serv.load()
+    res = serv.test_add_one(2)
+    assert(res, 3)
+
+server_code example with marshmallow_dataclass:
+
+    @dataclass
+    class TestServerObject:
+        name: str = field()
+        id: int = field()
+
+    flsk = flask.Flask('test')
+    app = ServerService(flsk, base='/my_service')
+    app.register(TestServerObject)
+
+    @app.get('/test2')
+    def test_obj(p: TestServerObject) -> TestServerObject:
+        return p
 
 The service will:
 
@@ -29,7 +46,7 @@ The service will:
     - they have the right type
     - they are mandatory
 
-* handle the content type, complex types use marshmallow
+* handle the content type, complex types use marshmallow:
 
 * encoding is automatically adapted
 
@@ -39,4 +56,4 @@ The service will:
 
 * type annotation is optional
 
-* pandas dataframe can be returned
+* pandas dataframe can be used

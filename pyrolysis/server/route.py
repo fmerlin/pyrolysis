@@ -28,7 +28,7 @@ def has_browser():
     return flask.request.user_agent.browser in ['chrome', 'msie', 'firefox', 'opera']
 
 
-class Service(mime.Converter):
+class ServerService(mime.Converter):
     securities = {}
     passwords = {}
     api_keys = set()
