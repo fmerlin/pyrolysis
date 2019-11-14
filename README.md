@@ -23,9 +23,9 @@ client code example:
     serv = ClientService('http://localhost:5000/my_service')
     serv.load()
     res = serv.test_add_one(2)
-    assert(res, 3)
+    assert(res == 3)
 
-server_code example with marshmallow_dataclass:
+server code example with [marshmallow_dataclass](https://github.com/lovasoa/marshmallow_dataclass):
 
     @dataclass
     class TestServerObject:
