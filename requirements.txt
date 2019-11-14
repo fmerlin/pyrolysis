@@ -1,0 +1,9 @@
+flask
+python-dateutil
+flask_swagger
+pyjwt
+requests
+requests-auth
+marshmallow_jsonschema
+pandas
+msgpack
