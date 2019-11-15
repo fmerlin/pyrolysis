@@ -52,15 +52,15 @@ def forward_checker(parent, name):
 
 
 def create_checker(parent, details):
-    if '$ref' in details:
-        name = details['$ref']
+    s = details.get('schema', details)
+    if '$ref' in s:
+        name = s['$ref']
         if name[:14] == '#/definitions/':
             name = name[14:]
             if name in parent.definitions:
                 return parent.definitions[name]
             return forward_checker(parent, name)
         raise errors.InvalidSwaggerDefinition(ref=name, status='unknown')
-    s = details.get('schema', details)
     f = s.get('format', None)
     t = s.get('type', None)
     if t == 'string':
@@ -74,13 +74,15 @@ def create_checker(parent, details):
             c = type_checker(str)
     elif t == 'number':
         c = type_checker(float, int)
-    elif t == 'bool':
+    elif t == 'boolean':
         c = type_checker(bool)
     elif t == 'integer' or t == 'long':
         c = type_checker(int)
     elif t == 'array':
         items = s.get('items', {})
         c = array_checker(create_checker(parent, items))
+    elif t == 'file':
+        c = type_checker(str)
     elif t == 'object':
         mandatory = s != details and s.get('required', []) or []
         fields = s.get('properties', {})

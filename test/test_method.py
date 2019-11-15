@@ -11,8 +11,8 @@ import fixture.test_service as tst
 class TestService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        command.start_server_background(tst.app, 4000)
-        cls.serv = service.ClientService('http://localhost:4000').build()
+        command.start_server_background(tst.flsk, 4000)
+        cls.serv = service.ClientService('http://localhost:4000', username='myuser', password='mypassword', api_key='azerty').build()
 
     @classmethod
     def tearDownClass(cls):
@@ -34,9 +34,13 @@ class TestService(unittest.TestCase):
         res = self.serv.test_body({'x': 1})
         self.assertEqual(res, {'x': 1})
 
-    # def test_security(self):
-    #     res = self.serv.test_security()
-    #     self.assertEqual(res, os.getlogin())
+    def test_security(self):
+        res = self.serv.test_security()
+        self.assertEqual(res, 'myuser')
+
+    def test_security2(self):
+        res = self.serv.test_security2()
+        self.assertEqual(res, 'azerty')
 
     def test_client_exception(self):
         resp = requests.get('http://localhost:4000/test/hello')

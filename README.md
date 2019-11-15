@@ -1,10 +1,19 @@
 ## Pyrolysis is a simple way to create and use REST Apis using python 3 type system
 
+##### Example:
 
-server code example:
+>model.py
+
+    @dataclass
+    class TestServerObject:
+        name: str = field()
+        id: int = field()
+
+>server.py
 
     flsk = flask.Flask('test')
     app = ServerService(flsk, base='/my_service')
+    app.register(TestServerObject)
 
     @app.get('/test/<p>')
     def test_add_one(p: int=1) -> int:
@@ -16,29 +25,22 @@ server code example:
         """
         return p + 1
 
-    start_server(app, 5000)
-
-client code example:
-
-    serv = ClientService('http://localhost:5000/my_service')
-    serv.load()
-    res = serv.test_add_one(2)
-    assert(res == 3)
-
-server code example with [marshmallow_dataclass](https://github.com/lovasoa/marshmallow_dataclass):
-
-    @dataclass
-    class TestServerObject:
-        name: str = field()
-        id: int = field()
-
-    flsk = flask.Flask('test')
-    app = ServerService(flsk, base='/my_service')
-    app.register(TestServerObject)
-
     @app.get('/test2')
     def test_obj(p: TestServerObject) -> TestServerObject:
         return p
+
+    start_server(flsk, 5000)
+
+> client.py
+
+    builder = ClientService('http://localhost:5000/my_service')
+    builder.register(TestServerObject)
+    serv = builder.build()
+    res = serv.test_add_one(2)
+    assert(res == 3)
+    res = serv.test_obj(TestServerObject(name='example', id=1))
+    assert(res == TestServerObject(name='example', id=1))
+
 
 The service will:
 

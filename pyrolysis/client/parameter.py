@@ -63,7 +63,7 @@ def get_type(parent, details):
             return 'str'
     elif t == 'number':
         return 'float'
-    elif t == 'bool':
+    elif t == 'boolean':
         return 'bool'
     elif t == 'integer' or t == 'long':
         return 'int'

@@ -1,5 +1,10 @@
 import base64
 
+
+def keep(obj, fields):
+    return dict((k, v) for k, v in obj.items() if k in fields)
+
+
 from pyrolysis.common import errors
 
 
@@ -44,10 +49,6 @@ def combine(*args):
     for a in args:
         res.update(a)
     return res
-
-
-def keep(obj, fields):
-    return dict((k, v) for k, v in obj.items() if k in fields)
 
 
 def decode_contenttype(v):

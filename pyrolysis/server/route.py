@@ -17,7 +17,7 @@ from pyrolysis.common import mime, support
 from pyrolysis.common import errors, doc
 from pyrolysis.common.mime import application, JSONEncoder2
 from pyrolysis.common.resource import Resource
-from pyrolysis.server.api_key import ApiKeyHeader
+from pyrolysis.server.api_key import ApiKeyHeader, ApiKeyParameter
 from pyrolysis.server.basic import BasicHeader
 from pyrolysis.server.jwt import JWTHeader
 from pyrolysis.server.parameter import Body, Path, Query, Security
@@ -240,14 +240,18 @@ class ServerService(mime.Converter):
             return BasicHeader(name=name, security=security, keys=list(args.keys()), service=self, required=required)
         return f
 
-    def api_key(self, security, required=True):
+    def api_key(self, security, exposed_name=None, location='header', required=True):
         if security not in self.securities:
-            res = dict(type='apiKey', scopes={})
+            res = {'type': 'apiKey', 'in': location, 'name': exposed_name or security, 'scopes': {}}
             self.securities[security] = res
 
         def f(name=None, **args):
             self.securities[security]['scopes'].update(args)
-            return ApiKeyHeader(name=name, security=security, keys=list(args.keys()), service=self, required=required)
+            if location == 'header':
+                return ApiKeyHeader(security=security, keys=list(args.keys()), service=self, required=required, exposed_name=exposed_name)
+            if location == 'query':
+                return ApiKeyParameter(security=security, keys=list(args.keys()), service=self, required=required, exposed_name=exposed_name)
+            raise errors.InvalidSwaggerDefinition(security=security, parameter='location', value=location, status='bad value')
         return f
 
     def add_user(self, username, password):

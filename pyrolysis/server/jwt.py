@@ -42,7 +42,6 @@ class JWTHeader(Security):
                 return certificate.public_key()
         raise errors.Unauthorized(message='no tid in id-token')
 
-
     def fetch(self, bearer):
         (jwt_header, jwt_body, jwt_sign) = bearer.split('.')
 

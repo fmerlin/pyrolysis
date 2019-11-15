@@ -8,11 +8,10 @@ from pyrolysis.server.route import ServerService
 
 flsk = flask.Flask('test')
 app = ServerService(flsk)
-
-
-# test_sec = app.oauth2(security='test_sec',
-#                      authorizationUrl='')
-
+basic_security = app.basic(security='test_sec1', required=True)
+app.add_user('myuser', 'mypassword')
+apikey_security = app.api_key(security='test_sec2', required=True, exposed_name='x-api-key')
+app.add_key('azerty')
 
 @dataclass
 class TestServerObject:
@@ -75,13 +74,22 @@ def test_body(p: dict) -> dict:
     return p
 
 
-# @app.get(
-#     '/test5',
-#     parameters=[test_sec(name='user', my_test2_write='return user')]
-# )
-# def test_security(user: str) -> str:
-#     """Example 5 for a unit test"""
-#     return user
+@app.get(
+    '/test5',
+    parameters=[basic_security(name='user', my_test2_write='return user')]
+)
+def test_security(user: str) -> str:
+    """Example 5 for a unit test"""
+    return user
+
+
+@app.get(
+    '/test5b',
+    parameters=[apikey_security(name='key', my_test2_write='return key', exposed_name='x-api-key')]
+)
+def test_security2(key: str) -> str:
+    """Example 5 for a unit test"""
+    return key
 
 
 @app.get('/test6')

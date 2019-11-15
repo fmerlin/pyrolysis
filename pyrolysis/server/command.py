@@ -4,15 +4,15 @@ import requests
 import time
 
 
-def start_server(app, port=5000):
-    @app.post('/shutdown')
+def start_server(app: flask.Flask, port=5000):
+    @app.route('/shutdown', methods=['POST'])
     def shutdown():
         func = flask.request.environ.get('werkzeug.server.shutdown')
         if func is None:
             raise RuntimeError('Not running with the Werkzeug Server')
         func()
         return "OK", 200
-    app.flask.run(port=port, host='0.0.0.0', debug=True, use_reloader=False)
+    app.run(port=port, host='0.0.0.0', debug=True, use_reloader=False)
 
 
 def stop_server(port=5000):
@@ -20,15 +20,7 @@ def stop_server(port=5000):
     time.sleep(0.1)
 
 
-def start_server_background(app, port=5000):
+def start_server_background(app: flask.Flask, port=5000):
     server_thread = threading.Thread(target=start_server, args=(app, port))
     server_thread.start()
     time.sleep(0.1)
-
-
-def main(args):
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-p', '--port', help='port to listen to', default=7501, type=int)
-    options = parser.parse_args(args)
-    start_server(options.port)

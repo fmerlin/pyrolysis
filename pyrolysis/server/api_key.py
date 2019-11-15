@@ -8,4 +8,12 @@ class ApiKeyHeader(Security):
         return auth if auth in self.service.api_keys else None
 
     def get(self):
-        return flask.request.headers.get('x-api-key', flask.request.args.get('api_key', None))
+        return flask.request.headers.get(self.exposed_name or self.name, None)
+
+
+class ApiKeyParameter(Security):
+    def fetch(self, auth):
+        return auth if auth in self.service.api_keys else None
+
+    def get(self):
+        return flask.request.args.get(self.exposed_name or self.name, None)

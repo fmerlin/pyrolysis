@@ -1,12 +1,13 @@
 import unittest
+import os.path
 from pyrolysis.client import service
 
 
 class TestService(unittest.TestCase):
     def test_petshop(self):
-        guru5 = service.ClientService()
-        guru5.load(file='fixture/petshop-swagger.json')
-        self.assertTrue(guru5.is_compatible_with(guru5))
+        petshop = service.ClientService(api_key='my_key')
+        petshop.load(file=os.path.join(os.path.dirname(__file__), 'fixture', 'petshop-swagger.json'))
+        self.assertTrue(petshop.is_compatible_with(petshop))
 
 
 if __name__ == '__main__':

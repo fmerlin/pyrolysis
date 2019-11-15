@@ -125,6 +125,8 @@ class SwaggerMethod:
                 self.header_parameters.append(p)
             elif k == 'cookie':
                 self.cookie_parameters.append(p)
+            elif k == 'formData':
+                self.body_parameter = p
             else:
                 raise errors.InvalidSwaggerDefinition()
             self.pos += 1

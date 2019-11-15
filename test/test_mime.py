@@ -2,7 +2,6 @@ import unittest
 from datetime import date, datetime
 from pyrolysis.common.mime import Converter
 from dataclasses import dataclass, field
-import marshmallow_dataclass
 
 
 @dataclass
@@ -11,13 +10,10 @@ class TestObject:
     id: int = field()
 
 
-TestObjectSchema = marshmallow_dataclass.class_schema(TestObject)
-
-
 class TestService(unittest.TestCase):
     def setUp(self):
         self.converter = Converter()
-        self.converter.register(TestObject, TestObjectSchema)
+        self.converter.register(TestObject)
 
     def test_str_convert(self):
         self.assertEqual(self.converter.str_convert(1), '1')

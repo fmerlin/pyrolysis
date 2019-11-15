@@ -14,7 +14,7 @@ type_class = type
 
 class Parameter:
     def __init__(self, name=None, type=None, required=True, service=None, description='', defaultValue=None, enum=None,
-                 array=False, hidden=False):
+                 array=False, hidden=False, exposed_name=None):
         check_param(name, str, False)
         check_param(type, type_class, False)
         check_param(description, str, False)
@@ -31,6 +31,7 @@ class Parameter:
         self.name = name
         self.array = array
         self.hidden = hidden
+        self.exposed_name = exposed_name
 
     def set_default(self, v):
         if self.defaultValue is None:
@@ -103,17 +104,17 @@ class Parameter:
 
 class Header(Parameter):
     def get(self):
-        return flask.request.headers.get(self.name, None)
+        return flask.request.headers.get(self.exposed_name or self.name, None)
 
 
 class Query(Parameter):
     def get(self):
-        return flask.request.args.get(self.name, None)
+        return flask.request.args.get(self.exposed_name or self.name, None)
 
 
 class Cookie(Parameter):
     def get(self):
-        return flask.request.cookies.get(self.name, None)
+        return flask.request.cookies.get(self.exposed_name or self.name, None)
 
 
 class Body(Parameter):
@@ -143,9 +144,9 @@ class Path(Parameter):
 
 
 class Security(Parameter):
-    def __init__(self, name=None,  security=None, required=True, service=None, keys=[]):
+    def __init__(self, name=None,  security=None, required=True, service=None, keys=[], exposed_name=None):
         super().__init__(name, type=str, required=required, service=service, description='', defaultValue=None,
-                         enum=None, array=False, hidden=True)
+                         enum=None, array=False, hidden=True, exposed_name=exposed_name)
         self.keys = keys
         self.security_name = security
 
