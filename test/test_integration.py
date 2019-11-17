@@ -12,7 +12,7 @@ class TestService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         command.start_server_background(tst.flsk, 4000)
-        cls.serv = service.ClientService('http://localhost:4000', username='myuser', password='mypassword', api_key='azerty').build()
+        cls.serv = service.ClientService('http://localhost:4000', username='user', password='password', api_key='azerty').build()
 
     @classmethod
     def tearDownClass(cls):
@@ -36,7 +36,7 @@ class TestService(unittest.TestCase):
 
     def test_security(self):
         res = self.serv.test_security()
-        self.assertEqual(res, 'myuser')
+        self.assertEqual(res, 'user')
 
     def test_security2(self):
         res = self.serv.test_security2()

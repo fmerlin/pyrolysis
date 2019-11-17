@@ -9,14 +9,14 @@ from pyrolysis import common, client
 from requests.adapters import HTTPAdapter
 
 from pyrolysis.client.checker import create_checker
-from pyrolysis.common import mime
+from pyrolysis.common import converter
 from pyrolysis.common.dict_object import DictObject
 from pyrolysis.client.method import SwaggerMethod
 
 logger = logging.getLogger(__name__)
 
 
-class ClientService(mime.Converter):
+class ClientService(converter.Converter):
     def __init__(self, base='http://localhost', server_mode=False, track=False, agent=None,
                  username=None, password=None, api_key=None, proxies=(), port=8000, success_display_time=60,
                  failure_display_time=60, timeout=60, cache=None, max_retries=5, with_checks=True, statsd=None,
@@ -50,7 +50,7 @@ class ClientService(mime.Converter):
         session = requests.Session()
         session.mount(self.base, HTTPAdapter(max_retries=max_retries))
         session.headers['User-Agent'] = agent or 'Pyrolysis-v' + client.__version__
-        session.headers['Accept'] = ' '.join(mime.mimetypes)
+        session.headers['Accept'] = ' '.join(converter.mimetypes)
         session.headers.update(headers)
         if track:
             session.headers['X-SESSION-LOGIN'] = username
@@ -102,7 +102,7 @@ class ClientService(mime.Converter):
             for method, detail2 in detail1.items():
                 method_name = detail2['operationId']
                 m = SwaggerMethod(self, method_name, method, self.base + path, detail2['summary'], detail2['tags'])
-                for security_items in detail2.get('security',[]):
+                for security_items in detail2.get('security', []):
                     lst = [self.auth[security] for security in security_items.keys()]
                     if len(lst) == 1:
                         m.add_auth(lst[0])

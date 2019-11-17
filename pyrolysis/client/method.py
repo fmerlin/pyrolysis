@@ -4,7 +4,7 @@ import time
 import requests.utils
 
 from pyrolysis.client import parameter
-from pyrolysis.common import swagger, support, mime
+from pyrolysis.common import swagger, support, converter
 from pyrolysis.common import errors
 from pyrolysis.client.parameter import create_parameter
 from http import HTTPStatus as status
@@ -35,7 +35,7 @@ class SwaggerMethod:
         self.array = False
         self.pos = 0
         self.__doc__ = doc
-        self.encoding = mime.application.json
+        self.encoding = converter.application.json
         self.with_checks = parent.with_checks
         self.statsd = parent.statsd
         self.request_args = {'verify': False, 'timeout': parent.timeout}
@@ -103,7 +103,7 @@ class SwaggerMethod:
         return res
 
     def load(self, details):
-        self.encoding = details.get('consumes', [mime.application.text])[0]
+        self.encoding = details.get('consumes', [converter.application.text])[0]
         for name, detail3 in details.get('responses', {}).items():
             self.responses[name] = detail3.get('description', '')
             if name == '200':
@@ -112,7 +112,7 @@ class SwaggerMethod:
         for detail3 in details.get('parameters', []):
             k = detail3['in']
             name = detail3['name']
-            encoding = self.encoding if k == 'body' else mime.application.text
+            encoding = self.encoding if k == 'body' else converter.application.text
             p = create_parameter(self, detail3, self.pos, name, encoding=encoding)
             self.parameters.append(p)
             if k == 'body':
@@ -137,7 +137,7 @@ class SwaggerMethod:
             self.request_args['auth'] = param
 
     def add_parameter(self, name, type, checker=None, kind='query', required=True, defaultValue=None, description=''):
-        encoder = mime.encoders[self.encoding if kind == 'body' else mime.application.text]
+        encoder = converter.encoders[self.encoding if kind == 'body' else converter.application.text]
         p = parameter.SwaggerParameter(self.pos, name, required, defaultValue, description, checker, encoder, type, self)
         self.parameters.append(p)
         self.pos += 1

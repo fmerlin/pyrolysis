@@ -1,10 +1,11 @@
+from abc import ABC
 from datetime import date, datetime
 from enum import Enum
 
 import flask
 
 from pyrolysis import common as common
-from pyrolysis.common import mime, swagger
+from pyrolysis.common import converter, swagger
 from pyrolysis.common import errors
 from pyrolysis.common.support import check_param, purge
 
@@ -12,7 +13,7 @@ from pyrolysis.common.support import check_param, purge
 type_class = type
 
 
-class Parameter:
+class Parameter(ABC):
     def __init__(self, name=None, type=None, required=True, service=None, description='', defaultValue=None, enum=None,
                  array=False, hidden=False, exposed_name=None):
         check_param(name, str, False)
@@ -70,14 +71,14 @@ class Parameter:
             else:
                 return self.defaultValue
         try:
-            mimetype = flask.request.content_type if self.location == 'body' else mime.application.text
+            mimetype = flask.request.content_type if self.location == 'body' else converter.application.text
             res = self.service.revert(mimetype, res, cls=self.type, many=self.array,
                                             encoding=flask.request.content_encoding)
             if self.enum is not None:
                 if res not in self.enum:
                     raise errors.BadRequest(parameter=self.name, enum=self.enum, status='unknown')
             return res
-        except errors.BaseException as e:
+        except errors.PyrolysisException as e:
             e.put(parameter=self.name)
             raise e
         except Exception as e:
@@ -93,7 +94,7 @@ class Parameter:
                       "format": swagger.format_convert.get(self.type, None), "enum": self.enum})
 
     def consumes(self):
-        return [mime.application.text]
+        return [converter.application.text]
 
     def __repr__(self):
         t = '[' + ','.join(str(x) for x in self.enum) + ']' if self.enum else self.type.__name__
@@ -131,37 +132,13 @@ class Body(Parameter):
     def consumes(self):
         if self.array:
             if self.type in [list, dict, common.pandas_df_type] or self.type in self.service.schemas:
-                return [mime.application.json, mime.application.msgpack, mime.application.csv, mime.application.xml, mime.application.pickle]
+                return [converter.application.json, converter.application.msgpack, converter.application.csv, converter.application.xml, converter.application.pickle]
         else:
             if self.type in [str, int, float, date, datetime]:
-                return [mime.application.json, mime.application.msgpack, mime.application.text, mime.application.xml, mime.application.pickle]
-        return [mime.application.json, mime.application.msgpack, mime.application.xml, mime.application.pickle]
+                return [converter.application.json, converter.application.msgpack, converter.application.text, converter.application.xml, converter.application.pickle]
+        return [converter.application.json, converter.application.msgpack, converter.application.xml, converter.application.pickle]
 
 
 class Path(Parameter):
     def get(self):
         return flask.request.view_args[self.name]
-
-
-class Security(Parameter):
-    def __init__(self, name=None,  security=None, required=True, service=None, keys=[], exposed_name=None):
-        super().__init__(name, type=str, required=required, service=service, description='', defaultValue=None,
-                         enum=None, array=False, hidden=True, exposed_name=exposed_name)
-        self.keys = keys
-        self.security_name = security
-
-    def security(self):
-        return {self.security_name: self.keys}
-
-    def fetch(self, auth):
-        raise NotImplementedError()
-
-    def extract(self):
-        auth = self.get()
-        if auth:
-            auth = auth.strip()
-            return self.fetch(auth)
-        if self.required:
-            raise errors.Unauthorized(message='No token provided')
-        else:
-            return None

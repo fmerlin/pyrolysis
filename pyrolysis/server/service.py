@@ -6,6 +6,7 @@ import uuid
 from collections import Mapping
 from functools import wraps
 from http import HTTPStatus as status
+from typing import Set
 
 import flask
 import flask_swagger
@@ -13,22 +14,20 @@ import yaml
 from marshmallow_jsonschema import JSONSchema
 
 from pyrolysis import common as common
-from pyrolysis.common import mime, support
+from pyrolysis.common import converter, support
 from pyrolysis.common import errors, doc
-from pyrolysis.common.mime import application, JSONEncoder2
+from pyrolysis.common.converter import JSONEncoder2
 from pyrolysis.common.resource import Resource
-from pyrolysis.server.api_key import ApiKeyHeader, ApiKeyParameter
-from pyrolysis.server.basic import BasicHeader
-from pyrolysis.server.jwt import JWTHeader
-from pyrolysis.server.parameter import Body, Path, Query, Security
+from pyrolysis.server.parameter import Body, Path, Query
 from pyrolysis.server.response import Result
+from pyrolysis.server.security import Security, MultiRole
 
 
 def has_browser():
     return flask.request.user_agent.browser in ['chrome', 'msie', 'firefox', 'opera']
 
 
-class ServerService(mime.Converter):
+class ServerService(converter.Converter):
     securities = {}
     passwords = {}
     api_keys = set()
@@ -47,7 +46,7 @@ class ServerService(mime.Converter):
         if health:
             @flask.route('/health')
             def health():
-                    return "OK " + datetime.datetime.now().isoformat(), 200
+                return "OK " + datetime.datetime.now().isoformat(), 200
 
         self.socket_app = socket_app
 
@@ -56,21 +55,23 @@ class ServerService(mime.Converter):
         def spec():
             if self.cached_spec is None:
                 json_schema = JSONSchema()
-                definitions = dict((k, list(json_schema.dump(v)['definitions'].values())[0]) for k, v in self.schemas.items())
+                definitions = dict(
+                    (k, list(json_schema.dump(v)['definitions'].values())[0]) for k, v in self.schemas.items())
                 spec = flask_swagger.swagger(flask, template=dict(definitions=definitions,
                                                                   info=self.info,
                                                                   securityDefinitions=self.securities))
                 self.cached_spec = json.dumps(spec, cls=JSONEncoder2, allow_nan=False)
             return self.cached_spec
 
-        @flask.errorhandler(errors.BaseException)
+        @flask.errorhandler(errors.PyrolysisException)
         def handle_error_base(e):
             return json.dumps(e.data, cls=JSONEncoder2, allow_nan=False), e.code
 
         @flask.errorhandler(Exception)
         def handle_error(e):
             flask.logger.exception('Uncaught exception')
-            return json.dumps({'type': type(e), 'message': str(e)}, cls=JSONEncoder2, allow_nan=False), status.INTERNAL_SERVER_ERROR
+            return json.dumps({'type': type(e), 'message': str(e)}, cls=JSONEncoder2,
+                              allow_nan=False), status.INTERNAL_SERVER_ERROR
 
     def get(self, path, **options):
         return self.operation(path, methods=['GET', 'HEAD'], **options)
@@ -85,7 +86,7 @@ class ServerService(mime.Converter):
         return self.operation(path, methods=['DELETE'], **options)
 
     def operation(self, path, tags=None, parameters=None, responses=None, operationId=None, summary=None,
-                  dump=False, cache=None, **options):
+                  dump=False, cache=None, roles=None, **options):
         support.check_param(tags, list, False)
         support.check_param(responses, dict, False)
         support.check_param(operationId, str, False)
@@ -93,6 +94,9 @@ class ServerService(mime.Converter):
         support.check_param(dump, bool, False)
         if not parameters:
             parameters = []
+        if roles:
+            roles = MultiRole(roles)
+            self.securities.update(roles.get_service_definition())
 
         def decorator(fn):
             op = operationId or fn.__name__
@@ -101,7 +105,6 @@ class ServerService(mime.Converter):
             c = fn.__defaults__
             summary, desc, desc_params, desc_return, desc_raise = doc.parse_docstring(fn.__doc__)
             types = getattr(fn, '__annotations__', {})
-            security = []
             for i in range(n):
                 name = v[i]
                 cst = c[i] if c and i < len(c) else None
@@ -115,14 +118,15 @@ class ServerService(mime.Converter):
                         parameters[i].description = desc_params[name]
                     if c and i < len(c):
                         parameters[i].set_default(c[i])
-                    if isinstance(parameters[i], Security):
-                        security.append(parameters[i].security())
-                elif '<'+name+'>' in path:
-                    parameters.append(Path(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
+                elif '<' + name + '>' in path:
+                    parameters.append(
+                        Path(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
                 elif issubclass(tp, Mapping) or tp.__name__ in self.schemas or tp == common.pandas_df_type:
-                    parameters.append(Body(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
+                    parameters.append(
+                        Body(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
                 else:
-                    parameters.append(Query(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
+                    parameters.append(
+                        Query(name, tp, service=self, defaultValue=cst, description=desc_params.get(name, '')))
             return_type = types.get('return', None)
             toadd = True
             produces = []
@@ -149,6 +153,8 @@ class ServerService(mime.Converter):
             def wrapper(*args, **kwargs):
                 try:
                     self.set_user(None)
+                    if roles:
+                        roles.check_roles()
                     args = [p.extract() for p in parameters]
                     req = flask.request
                     if dump:
@@ -169,14 +175,12 @@ class ServerService(mime.Converter):
                             self.statsd.timing(op + '.request', time_end - time_start)
                     except errors.Unauthorized as e:
                         if has_browser():
-                            res = [[u['authorizationUrl'] for u in v.values() if u['type'] == 'oauth2'] for v in security]
-                            res = [x[0] for x in res if len(x) > 0]
-                            if len(res) > 0:
+                            if 'authorizationUrl' in e.data:
                                 return flask.redirect(
-                                    location=res[0] + '&redirect=' + urllib.parse.quote(flask.request.url),
+                                    location=e.data['authorizationUrl'] + '&redirect=' + urllib.parse.quote(flask.request.url),
                                     code=status.TEMPORARY_REDIRECT)
                         raise e
-                    except errors.BaseException as e:
+                    except errors.PyrolysisException as e:
                         raise e
                     except Exception as e:
                         raise errors.InternalServerError(e)
@@ -192,7 +196,7 @@ class ServerService(mime.Converter):
                     if req.method == 'HEAD':
                         return flask.Response(mimetype=kind, status=status.OK, headers=headers)
                     return flask.Response(self.convert(kind, res), mimetype=kind, status=status.OK, headers=headers)
-                except errors.BaseException as e:
+                except errors.PyrolysisException as e:
                     msg = support.extract_call_info(fn, args, kwargs)
                     self.logger.exception(msg)
                     e.put(operationId=op, path=path)
@@ -202,8 +206,8 @@ class ServerService(mime.Converter):
                         parameters=[p.json() for p in parameters if not p.hidden],
                         responses=dict((str(v.code().value), v.json()) for v in resp)
                         )
-            if security:
-                args['security'] = security
+            if roles:
+                args['security'] = roles.get_role_names()
             for p in parameters:
                 if p.location == 'body':
                     args['consumes'] = p.consumes()
@@ -215,44 +219,6 @@ class ServerService(mime.Converter):
             return fn
 
         return decorator
-
-    def oauth2(self, security, authorizationUrl, flow='implicit', tokenUrl=None, refreshUrl=None, required=True):
-        support.check_param(security, str, True)
-        support.check_param(authorizationUrl, str, True)
-        support.check_param(tokenUrl, str, False)
-        support.check_param(refreshUrl, str, False)
-        support.check_param(flow, ['implicit', 'password', 'clientCredentials', 'authorizationCode'], True)
-        if security not in self.securities:
-            self.securities[security] = dict(flow=flow, authorizationUrl=authorizationUrl, type='oauth2', scopes={})
-
-        def f(name=None, **args):
-            self.securities[security]['scopes'].update(args)
-            return JWTHeader(name=name, security=security, keys=list(args.keys()), service=self, required=required)
-        return f
-
-    def basic(self, security, required=True):
-        if security not in self.securities:
-            res = dict(type='basic', scopes={})
-            self.securities[security] = res
-
-        def f(name=None, **args):
-            self.securities[security]['scopes'].update(args)
-            return BasicHeader(name=name, security=security, keys=list(args.keys()), service=self, required=required)
-        return f
-
-    def api_key(self, security, exposed_name=None, location='header', required=True):
-        if security not in self.securities:
-            res = {'type': 'apiKey', 'in': location, 'name': exposed_name or security, 'scopes': {}}
-            self.securities[security] = res
-
-        def f(name=None, **args):
-            self.securities[security]['scopes'].update(args)
-            if location == 'header':
-                return ApiKeyHeader(security=security, keys=list(args.keys()), service=self, required=required, exposed_name=exposed_name)
-            if location == 'query':
-                return ApiKeyParameter(security=security, keys=list(args.keys()), service=self, required=required, exposed_name=exposed_name)
-            raise errors.InvalidSwaggerDefinition(security=security, parameter='location', value=location, status='bad value')
-        return f
 
     def add_user(self, username, password):
         self.passwords[username] = password

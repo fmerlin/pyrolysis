@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pyrolysis.common import pandas_df_type, mime
+from pyrolysis.common import pandas_df_type, converter
 
 
 type_convert = {int: 'integer', float: 'number', str: 'string', date: 'string', datetime: 'string', bool: 'boolean',
@@ -13,7 +13,7 @@ str_revert = {'date': date, 'date-time': datetime}
 def get_type(data):
     r = data.get('$ref', None)
     if r:
-        if r[:14] != '#/definitions/' or r[14:] not in mime.schemas:
+        if r[:14] != '#/definitions/' or r[14:] not in converter.schemas:
             raise Exception()
         return r[14:], False
     t = data.get('type', None)

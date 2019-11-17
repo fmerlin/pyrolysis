@@ -2,10 +2,10 @@ import json
 import traceback
 from http import HTTPStatus as status
 import sys
-from pyrolysis.common.mime import application
+from pyrolysis.common.converter import application
 
 
-class BaseException(Exception):
+class PyrolysisException(Exception):
     code = status.INTERNAL_SERVER_ERROR
 
     def __init__(self, code=None, remote=False,  **data):
@@ -18,15 +18,15 @@ class BaseException(Exception):
         self.data.update(data)
 
 
-class InvalidSwaggerDefinition(BaseException):
+class InvalidSwaggerDefinition(PyrolysisException):
     pass
 
 
-class ClientError(BaseException):
+class ClientError(PyrolysisException):
     pass
 
 
-class ServerError(BaseException):
+class ServerError(PyrolysisException):
     pass
 
 

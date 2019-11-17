@@ -3,7 +3,7 @@ from http import HTTPStatus as status
 from datetime import date, datetime
 
 from pyrolysis import common
-from pyrolysis.common import mime, swagger
+from pyrolysis.common import converter, swagger
 from pyrolysis.common import errors
 from pyrolysis.common.resource import Resource
 from pyrolysis.common.support import purge
@@ -20,11 +20,11 @@ class Result:
     def produces(self):
         if self.array:
             if self.type in [list, dict, common.pandas_df_type] or self.type in self.parent.schemas:
-                return [mime.application.json, mime.application.msgpack, mime.application.csv, mime.application.xml]
+                return [converter.application.json, converter.application.msgpack, converter.application.csv, converter.application.xml]
         else:
             if self.type in [str, int, float, date, datetime]:
-                return [mime.application.json, mime.application.msgpack, mime.application.text, mime.application.xml]
-        return [mime.application.json, mime.application.msgpack, mime.application.xml]
+                return [converter.application.json, converter.application.msgpack, converter.application.text, converter.application.xml]
+        return [converter.application.json, converter.application.msgpack, converter.application.xml]
 
     def json(self):
         json = {

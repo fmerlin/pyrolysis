@@ -1,17 +1,19 @@
 from enum import Enum, auto
 import flask
+from flask import g
 from pandas import DataFrame
 from dataclasses import dataclass, field
 
 from pyrolysis.server.parameter import Header
-from pyrolysis.server.route import ServerService
+from pyrolysis.server.security import BasicHeader, ApiKeyHeader
+from pyrolysis.server.service import ServerService
 
-flsk = flask.Flask('test')
-app = ServerService(flsk)
-basic_security = app.basic(security='test_sec1', required=True)
-app.add_user('myuser', 'mypassword')
-apikey_security = app.api_key(security='test_sec2', required=True, exposed_name='x-api-key')
-app.add_key('azerty')
+
+class MyEnum(Enum):
+    ONE = auto()
+    TWO = auto()
+    THREE = auto()
+
 
 @dataclass
 class TestServerObject:
@@ -19,13 +21,27 @@ class TestServerObject:
     id: int = field()
 
 
+class BasicSecurity(BasicHeader):
+    def fetch_roles(self, username, password):
+        if username == 'user' and password == 'password':
+            return ['authenticated']
+        return []
+
+
+class ApiKeySecurity(ApiKeyHeader):
+    def fetch_roles(self, key):
+        if key == 'azerty':
+            return ['admin']
+        return []
+
+
+flsk = flask.Flask('test')
+app = ServerService(flsk)
 app.register(TestServerObject)
-
-
-class MyEnum(Enum):
-    ONE = auto()
-    TWO = auto()
-    THREE = auto()
+basic = BasicSecurity(name='test_sec1')
+authenticated = basic.add_role("authenticated")
+apikey = ApiKeySecurity(name='test_sec2', header='x-api-key')
+admin = apikey.add_role("admin")
 
 
 @app.get('/test/<p>')
@@ -74,22 +90,16 @@ def test_body(p: dict) -> dict:
     return p
 
 
-@app.get(
-    '/test5',
-    parameters=[basic_security(name='user', my_test2_write='return user')]
-)
-def test_security(user: str) -> str:
+@app.get('/test5', roles=authenticated)
+def test_security() -> str:
     """Example 5 for a unit test"""
-    return user
+    return g.username
 
 
-@app.get(
-    '/test5b',
-    parameters=[apikey_security(name='key', my_test2_write='return key', exposed_name='x-api-key')]
-)
-def test_security2(key: str) -> str:
+@app.get('/test5b', roles=admin)
+def test_security2() -> str:
     """Example 5 for a unit test"""
-    return key
+    return g.apikey
 
 
 @app.get('/test6')
