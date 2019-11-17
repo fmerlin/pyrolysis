@@ -8,3 +8,5 @@ marshmallow_jsonschema
 pandas
 msgpack
 marshmallow_dataclass
+cryptography
+cachetools
