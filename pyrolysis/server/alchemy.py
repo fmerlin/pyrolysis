@@ -1,6 +1,8 @@
 import dataclasses
 from datetime import datetime, date
 from functools import wraps
+
+import flask_sqlalchemy
 import sqlalchemy.orm
 from flask import g
 
@@ -18,7 +20,6 @@ def transaction(session: sqlalchemy.orm.Session):
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                g.session = session
                 res = func(*args, **kwargs)
                 session.commit()
                 return res
@@ -49,3 +50,19 @@ def map_dataclasses(classes):
         props = dict((f.name, map_dataclass_field(f)) for f in dataclasses.fields(cls) if dataclasses.is_dataclass(f.type))
         table = sqlalchemy.Table(cls.__name__, metadata, *cols)
         sqlalchemy.orm.mapper(cls, table, properties=props)
+
+
+class RlsSession(flask_sqlalchemy.SignallingSession):
+    SET_ROLE_SQL = sqlalchemy.sql.text("SET LOCAL ROLE :role_name;")
+
+    def __init__(self, *args, **kwargs):
+        super(RlsSession, self).__init__(*args, **kwargs)
+        sqlalchemy.event.listen(self, 'after_begin', self.set_local_role)
+
+    def set_local_role(self, session, txn, connection):
+        connection.execute(self.SET_ROLE_SQL, role_name=g.role)
+
+
+class SQLAlchemy(flask_sqlalchemy.SQLAlchemy):
+    def create_session(self, options):
+        return RlsSession(self, **options)

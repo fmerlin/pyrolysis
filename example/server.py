@@ -1,7 +1,7 @@
+from datetime import datetime
 from typing import List
 import flask
 from flask import g
-from flask_login import current_user
 from flask_sqlalchemy import SQLAlchemy
 
 from models import Item, User, Key
@@ -25,7 +25,7 @@ def create_user():
 
 class BasicSecurity(BasicHeader):
     def fetch_roles(self, username, password):
-        user = db.session.User.query.filter_by(user=username, password=password).first()
+        g.user = user = db.session.User.query.filter_by(user=username, password=password).first()
         return user.role if user else []
 
 
@@ -42,6 +42,7 @@ class MyJWTSecurity(JWTHeader):
 
 app = ServerService(flsk)
 app.register(Item)
+modification_date = None
 
 basic = BasicSecurity(name='test_sec1')
 authenticated = basic.add_role("authenticated")
@@ -50,14 +51,15 @@ admin = apikey.add_role("admin")
 
 
 @app.get('/items', roles=authenticated and admin)
-@transaction(db.session)
 def get_all_items() -> List[Item]:
     """
     Example 1 for a unit test
 
     :return: return data
     """
-    return g.session.query(Item).all()
+    global modification_date
+    app.check_if_modified_since(modification_date)
+    return db.session.query(Item).all()
 
 
 @app.post('/items', roles=authenticated)
@@ -69,12 +71,13 @@ def create_item(e: Item) -> int:
     :param e: example of description
     :return: return data
     """
-    e.userid = current_user.id
-    return g.session.query(Item).add(e)
+    e.userid = g.user.id
+    global modification_date
+    modification_date = datetime.now()
+    return db.session.query(Item).add(e)
 
 
 @app.get('/items/<p>')
-@transaction(db.session)
 def get_item(id: int) -> Item:
     """
     Example 1 for a unit test
@@ -82,7 +85,7 @@ def get_item(id: int) -> Item:
     :param id: example of description
     :return: return data
     """
-    return g.session.query(Item).get(id)
+    return db.session.query(Item).get(id)
 
 
 @app.delete('/items/<p>', roles=authenticated)
@@ -94,7 +97,9 @@ def delete_item(id: int) -> int:
     :param id: example of description
     :return: return data
     """
-    return g.session.query(Item).delete(id)
+    global modification_date
+    modification_date = datetime.now()
+    return db.session.query(Item).delete(id)
 
 
 @app.put('/items/<p>', roles=authenticated)
@@ -106,4 +111,6 @@ def put_item(e: Item) -> int:
     :param e: example of description
     :return: return data
     """
-    return g.session.query(Item).update(e)
+    global modification_date
+    modification_date = datetime.now()
+    return db.session.query(Item).update(e)

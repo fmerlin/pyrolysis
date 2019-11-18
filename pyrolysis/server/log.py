@@ -1,7 +1,7 @@
 import threading
-
 import flask
 import logging
+from flask import g
 
 
 class RequestFilter(logging.Filter):
@@ -14,8 +14,9 @@ class RequestFilter(logging.Filter):
         record.login = headers.get("x-session-login", '')
         record.session = headers.get("x-session-start", '')
         record.request = headers.get("x-session-request", '')
-        record.uuid = flask.g.get('uuid', '')
-        record.user = self.data.user
+        record.uuid = g.get('uuid', '')
+        record.user = g.get('username', '')
+        record.apikey = g.get('apikey', '')
         return True
 
 

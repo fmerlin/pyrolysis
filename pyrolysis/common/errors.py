@@ -22,6 +22,10 @@ class InvalidSwaggerDefinition(PyrolysisException):
     pass
 
 
+class UnmodifiedResult(PyrolysisException):
+    code = status.NOT_MODIFIED
+
+
 class ClientError(PyrolysisException):
     pass
 

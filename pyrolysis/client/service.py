@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ClientService(converter.Converter):
-    def __init__(self, base='http://localhost', server_mode=False, track=False, agent=None,
+    def __init__(self, base='http://localhost', track=False, agent=None,
                  username=None, password=None, api_key=None, proxies=(), port=8000, success_display_time=60,
                  failure_display_time=60, timeout=60, cache=None, max_retries=5, with_checks=True, statsd=None,
                  key=None, cert=None, headers={}, no_oauth2=False):
@@ -35,7 +35,6 @@ class ClientService(converter.Converter):
         self.track = track
         self.definitions = {}
         self.auth = {}
-        self.server_mode = server_mode
         self.call_nb = 0
         self.cache = cache
         self.statsd = statsd
@@ -75,8 +74,6 @@ class ClientService(converter.Converter):
             if detail1['type'] == 'oauth2':
                 if self.no_oauth2:
                     self.auth[sec] = None
-                elif self.server_mode:
-                    self.auth[sec] = requests_auth.ForwardAuth()
                 else:
                     self.auth[sec] = requests_auth.authentication.OAuth2Implicit(
                         detail1['authorizationUrl'],

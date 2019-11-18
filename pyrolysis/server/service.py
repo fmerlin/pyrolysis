@@ -6,11 +6,11 @@ import uuid
 from collections import Mapping
 from functools import wraps
 from http import HTTPStatus as status
-from typing import Set
 
 import flask
 import flask_swagger
 import yaml
+from flask import g
 from marshmallow_jsonschema import JSONSchema
 
 from pyrolysis import common as common
@@ -20,7 +20,7 @@ from pyrolysis.common.converter import JSONEncoder2
 from pyrolysis.common.resource import Resource
 from pyrolysis.server.parameter import Body, Path, Query
 from pyrolysis.server.response import Result
-from pyrolysis.server.security import Security, MultiRole
+from pyrolysis.server.security import MultiRole
 
 
 def has_browser():
@@ -29,8 +29,6 @@ def has_browser():
 
 class ServerService(converter.Converter):
     securities = {}
-    passwords = {}
-    api_keys = set()
     cached_spec = None
     log_filter = None
 
@@ -86,7 +84,7 @@ class ServerService(converter.Converter):
         return self.operation(path, methods=['DELETE'], **options)
 
     def operation(self, path, tags=None, parameters=None, responses=None, operationId=None, summary=None,
-                  dump=False, cache=None, roles=None, **options):
+                  dump=False, cache=None, roles=None, etag=False, **options):
         support.check_param(tags, list, False)
         support.check_param(responses, dict, False)
         support.check_param(operationId, str, False)
@@ -152,7 +150,8 @@ class ServerService(converter.Converter):
             @wraps(fn)
             def wrapper(*args, **kwargs):
                 try:
-                    self.set_user(None)
+                    g.username = ''
+                    g.apikey = ''
                     if roles:
                         roles.check_roles()
                     args = [p.extract() for p in parameters]
@@ -166,8 +165,8 @@ class ServerService(converter.Converter):
                     kwargs = dict((k, v) for k, v in req.args.items()
                                   if k not in fn.__code__.co_varnames) if (fn.__code__.co_flags & 8) else {}
                     try:
-                        if 'uuid' not in flask.g:
-                            flask.g.uuid = uuid.uuid4()
+                        if 'uuid' not in g:
+                            g.uuid = uuid.uuid4()
                         time_start = time.clock()
                         res = fn(*args, **kwargs)
                         if self.statsd:
@@ -177,11 +176,15 @@ class ServerService(converter.Converter):
                         if has_browser():
                             if 'authorizationUrl' in e.data:
                                 return flask.redirect(
-                                    location=e.data['authorizationUrl'] + '&redirect=' + urllib.parse.quote(flask.request.url),
+                                    location=e.data['authorizationUrl'] + '&redirect=' + urllib.parse.quote(req.url),
                                     code=status.TEMPORARY_REDIRECT)
                         raise e
+                    except errors.UnmodifiedResult:
+                        return flask.Response(status=status.NOT_MODIFIED)
                     except errors.PyrolysisException as e:
                         raise e
+                    except NotImplementedError:
+                        return flask.Response(status=status.NOT_IMPLEMENTED)
                     except Exception as e:
                         raise errors.InternalServerError(e)
 
@@ -189,9 +192,22 @@ class ServerService(converter.Converter):
                         return flask.Response(status=status.NO_CONTENT)
                     if isinstance(res, flask.Response):
                         return res
-                    kind = req.accept_mimetypes.best_match(produces)
                     if req.method == 'POST' and isinstance(res, Resource):
                         return flask.Response(status=status.CREATED, headers={'Location': res.uri})
+                    last_modified = getattr(res, 'last_modified', None)
+                    if last_modified:
+                        headers['Last-Modified'] = last_modified
+                        modified_since = flask.request.headers.get('If-Modified-Since', None)
+                        if modified_since:
+                            dt_req = datetime.datetime.strptime(modified_since, '%a, %d %b %Y %H:%M:%S %z')
+                            if dt_req >= last_modified:
+                                return flask.Response(status=status.NOT_MODIFIED)
+                    if etag:
+                        headers['ETag'] = etag_value = str(hash(res))
+                        etag_match = flask.request.headers.get('If-None-Match', None)
+                        if etag_match and etag_match == etag_value:
+                            return flask.Response(status=status.NOT_MODIFIED)
+                    kind = req.accept_mimetypes.best_match(produces)
                     headers['x-content-class'] = type(res).__name__
                     if req.method == 'HEAD':
                         return flask.Response(mimetype=kind, status=status.OK, headers=headers)
@@ -220,12 +236,9 @@ class ServerService(converter.Converter):
 
         return decorator
 
-    def add_user(self, username, password):
-        self.passwords[username] = password
-
-    def add_key(self, api_key):
-        self.api_keys.add(api_key)
-
-    def set_user(self, user):
-        if self.log_filter:
-            self.log_filter.data.user = user
+    def check_if_modified_since(self, dt: datetime.datetime):
+        modified_since = flask.request.headers.get('If-Modified-Since', None)
+        if modified_since and dt:
+            dt_req = datetime.datetime.strptime(modified_since, '%a, %d %b %Y %H:%M:%S %z')
+            if dt_req >= dt:
+                raise errors.UnmodifiedResult()

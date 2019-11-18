@@ -6,17 +6,17 @@
 ##### Example:
 
 >model.py
-
+```python
     @dataclass
-    class TestServerObject:
+    class TestDataObject:
         name: str = field()
         id: int = field()
-
+```
 >server.py
-
+```python
     flsk = flask.Flask('test')
     app = ServerService(flsk, base='/my_service')
-    app.register(TestServerObject)
+    app.register(TestDataObject)
 
     @app.get('/test/<p>')
     def test_add_one(p: int=1) -> int:
@@ -29,21 +29,21 @@
         return p + 1
 
     @app.get('/test2')
-    def test_obj(p: TestServerObject) -> TestServerObject:
+    def test_obj(p: TestDataObject) -> TestDataObject:
         return p
 
     start_server(flsk, 5000)
-
+```
 > client.py
-
+```python
     builder = ClientService('http://localhost:5000/my_service')
-    builder.register(TestServerObject)
+    builder.register(TestDataObject)
     serv = builder.build()
     res = serv.test_add_one(2)
     assert(res == 3)
-    res = serv.test_obj(TestServerObject(name='example', id=1))
-    assert(res == TestServerObject(name='example', id=1))
-
+    res = serv.test_obj(TestDataObject(name='example', id=1))
+    assert(res == TestDataObject(name='example', id=1))
+```
 
 The client and the server will:
 

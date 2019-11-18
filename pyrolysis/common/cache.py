@@ -45,3 +45,8 @@ def memory_cache(proxy, size, ttl):
 def disk_cache(proxy, filename):
     import shelve
     return CacheObject(proxy, shelve.open(filename))
+
+
+def redis_cache(proxy, host='localhost', port=6379, db=0):
+    import redis
+    return CacheObject(proxy, redis.Redis(host=host, port=port, db=db))
